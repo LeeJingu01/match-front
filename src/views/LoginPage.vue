@@ -46,8 +46,10 @@ export default{
             const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/auth/login`, loginData);
             const token = response.data.access_token;
             const userId = jwtDecode(token).sub;
+            const nickname = jwtDecode(token).nick
             localStorage.setItem("token", token);
             localStorage.setItem("userId", userId);
+            localStorage.setItem("nickname", nickname);
             window.location.href="/";
         }
     }
