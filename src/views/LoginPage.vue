@@ -44,7 +44,7 @@ export default{
         async doLogin(){
             const loginData = {id:this.id, password:this.password};
             const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/auth/login`, loginData);
-            const token = response.data.access_token;
+            const token = response.data.accessToken;
             const userId = jwtDecode(token).sub;
             const nickname = jwtDecode(token).nick
             localStorage.setItem("token", token);
