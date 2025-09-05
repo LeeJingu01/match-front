@@ -35,7 +35,7 @@
 <script>
 import SockJS from 'sockjs-client';
 import Stomp from 'webstomp-client';
-// import axios from 'axios';
+import axios from 'axios';
 
 export default{
     data(){
@@ -45,10 +45,14 @@ export default{
             stompClient: null,
             token: "",
             senderNickname: null,
+            roomId: null,
         }
     },
-    created(){
+    async created(){
         this.senderNickname = localStorage.getItem("nickname");
+        this.roomId = this.$route.params.roomId;
+        const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/chatrooms/history/${this.roomId}`);
+        this.messages = response.data;
         this.connectWebsocket();
     },
      // 사용자가 현재 라우트에서 다른 라우트로 이동하려고 할때 호출되는 훅함수
@@ -72,13 +76,13 @@ export default{
 
             },
                 ()=>{
-                    this.stompClient.subscribe(`/sub/chat/1`, (message) => {
+                    console.log("✅ WebSocket 연결 성공");
+                    this.stompClient.subscribe(`/sub/chat/${this.roomId}`, (message) => {
                         const parseMessage = JSON.parse(message.body)
                         this.messages.push(parseMessage);
                         this.scrollToBottom();
-                    })
+                    },{Authorization: `Bearer ${this.token}`})
                 }
-
             )
         },
         sendMessage(){
@@ -87,7 +91,7 @@ export default{
                 senderNickname: this.senderNickname,
                 message: this.newMessage
             }
-            this.stompClient.send(`/pub/chat/1`, JSON.stringify(message));
+            this.stompClient.send(`/pub/chat/${this.roomId}`, JSON.stringify(message));
             this.newMessage = ""
         },
         scrollToBottom(){
@@ -98,7 +102,7 @@ export default{
         },
         disconnectWebSocket(){
             if(this.stompClient && this.stompClient.connected){
-                this.stompClient.unsubscribe(`/sub/chat/1`);
+                this.stompClient.unsubscribe(`/sub/chat/${this.roomId}`);
                 this.stompClient.disconnect();
             }
         }
