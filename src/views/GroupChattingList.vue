@@ -73,16 +73,16 @@ export default{
     },
     methods: {
         async joinChatRoom(roomId){
-            await axios.post(`${process.env.VUE_APP_API_BASE_URL}/chatrooms/group/${roomId}`);
+            await axios.post(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/group/${roomId}`);
             this.$router.push(`/chatpage/${roomId}`);
         },
         async createChatRoom(){
-            await axios.post(`${process.env.VUE_APP_API_BASE_URL}/chatrooms/group/create?roomName=${this.newRoomTitle}`, null);
+            await axios.post(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/group/create?roomName=${this.newRoomTitle}`, null);
             this.showCreateRoomModal = false;
             this.loadChatRooms();
         },
         async loadChatRooms(){
-            const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/chatrooms`);
+            const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms`);
             this.chatRoomList = response.data;
         }
     },

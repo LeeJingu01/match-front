@@ -22,7 +22,7 @@
                                     <td>{{member.userName}}</td>
                                     <td>{{member.email}}</td>
                                     <td>
-                                        <v-btn color="primary" @click="startChat(member.id)">채팅하기</v-btn>
+                                        <v-btn color="primary" @click="startChat(member.userId)">채팅하기</v-btn>
                                     </td>
                                 </tr>
                             </tbody>
@@ -49,16 +49,16 @@ export default{
         const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/users/list`);
         this.memberList = response.data;
     }
-    // ,
-    // methods:{
+    ,
+    methods:{
 
-    //     async startChat(otherMemberId){
-    //         // 기존의 채팅방이 있으면 return받고, 없으면 새롭게 생성된 roomId return.
-    //         const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/chat/room/private/create?otherMemberId=${otherMemberId}`);
-    //         const roomId = response.data;
-    //         this.$router.push(`/chatpage/${roomId}`);
+        async startChat(otherUserId){
+            // 기존의 채팅방이 있으면 return받고, 없으면 새롭게 생성된 roomId return.
+            const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/private/create?otherUserId=${otherUserId}`);
+            const roomId = response.data;
+            this.$router.push(`/chatpage/${roomId}`);
 
-    //     }
-    // }
+        }
+    }
 }
 </script>

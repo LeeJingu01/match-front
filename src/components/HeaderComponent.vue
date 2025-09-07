@@ -10,7 +10,7 @@
                     <v-btn :to="{path: '/'}">매칭 서비스</v-btn>
                 </v-col>
                 <v-col class="d-flex justify-end">
-                    <v-btn v-if="isLogin" :to="{path:'/my/chat/page'}" >MyChatPage</v-btn>
+                    <v-btn v-if="isLogin" :to="{path:'/api/v1/chatrooms/list'}" >MyChatPage</v-btn>
                     <v-btn v-if="!isLogin" :to="{path:'/auth/signup'}">회원가입</v-btn>
                     <v-btn v-if="!isLogin" :to="{path:'/auth/login'}">로그인</v-btn>
                     <v-btn v-if="isLogin" @click="doLogout">로그아웃</v-btn>
