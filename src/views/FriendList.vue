@@ -10,19 +10,15 @@
                         <v-table>
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>이름</th>
-                                    <th>email</th>
+                                    <th>닉네임</th>
                                     <th>채팅</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="member in memberList" :key="member.userId">
-                                    <td>{{member.userId}}</td>
-                                    <td>{{member.userName}}</td>
-                                    <td>{{member.email}}</td>
+                                <tr v-for="member in memberList" :key="member.nickname">
+                                    <td>{{member.nickname}}</td>
                                     <td>
-                                        <v-btn color="primary" @click="startChat(member.userId)">채팅하기</v-btn>
+                                        <v-btn color="primary" @click="startChat(member.nickname)">채팅하기</v-btn>
                                     </td>
                                 </tr>
                             </tbody>
@@ -46,15 +42,15 @@ export default{
         }
     },
     async created(){
-        const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/users/list`);
+        const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/api/v1/friends/list`);
         this.memberList = response.data;
     }
     ,
     methods:{
 
-        async startChat(otherUserId){
+        async startChat(otherNickname){
             // 기존의 채팅방이 있으면 return받고, 없으면 새롭게 생성된 roomId return.
-            const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/private/create?otherUserId=${otherUserId}`);
+            const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/private/create?otherNickname=${otherNickname}`);
             const roomId = response.data;
             this.$router.push(`/chatpage/${roomId}`);
 
