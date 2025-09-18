@@ -6,6 +6,7 @@ import SimpleWebsocket from "@/views/SimpleWebsocket.vue"
 import StompChatPage from "@/views/StompChatPage.vue"
 import GroupChattingList from "@/views/GroupChattingList.vue"
 import MyChatPage from "@/views/MyChatPage.vue"
+import NotificationPage from "@/views/NotificationPage.vue"
 
 
 
@@ -44,6 +45,11 @@ const routes = [
         path:'/api/v1/chatrooms/list',
         name: 'MyChatPage',
         component: MyChatPage
+    },
+    {
+        path:'/api/v1/notification',
+        name: 'NotificationPage',
+        component: NotificationPage
     },
 ]
 

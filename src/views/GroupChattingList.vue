@@ -83,7 +83,7 @@ export default{
         },
         async loadChatRooms(){
             const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms`);
-            this.chatRoomList = response.data;
+            this.chatRoomList = response.data.items;
         }
     },
 }

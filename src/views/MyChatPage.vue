@@ -54,6 +54,7 @@
                       <v-btn
                         color="secondary"
                         @click="leaveChatRoom(chat.roomId)"
+                        class="btn btn-outline-danger"
                         >나가기</v-btn
                       >
                     </td>
@@ -88,7 +89,7 @@ export default {
     const response = await axios.get(
       `${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/my/rooms`
     );
-    const allRooms = response.data;
+    const allRooms = response.data.items;
 
     // API 응답의 isGroupChat 값 확인 후 분리
     this.friendRooms = allRooms.filter(

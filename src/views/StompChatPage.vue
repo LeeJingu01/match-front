@@ -187,7 +187,7 @@ export default{
         this.senderNickname = localStorage.getItem("nickname");
         this.roomId = this.$route.params.roomId;
         const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/history/${this.roomId}`);
-        this.messages = response.data;
+        this.messages = response.data.items;
         this.connectWebsocket();
     },
      // 사용자가 현재 라우트에서 다른 라우트로 이동하려고 할때 호출되는 훅함수
@@ -268,7 +268,7 @@ export default{
             this.actionsMenu = false
             // 투표 목록 조회
             const { data } = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/chatrooms/${this.roomId}`)
-            this.votes = data
+            this.votes = data.items[0];
             this.voteListDialog = true
             },
 
@@ -289,7 +289,7 @@ export default{
         async openResult(vote) {
             this.activeVote = vote
             const { data } = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/${vote.voteId}/results`)
-            this.voteResult = data
+            this.voteResult = data.items[0]
             this.resultDialog = true
             },
 
