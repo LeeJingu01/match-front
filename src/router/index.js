@@ -17,7 +17,7 @@ const routes = [
         component: MemberCreate
     },
     {
-        path:'/auth/login',
+        path:'/Login',
         name: 'LoginPage',
         component: LoginPage
     },
@@ -42,15 +42,20 @@ const routes = [
         component: GroupChattingList
     },
     {
-        path:'/api/v1/chatrooms/list',
+        path:'/chatrooms/list',
         name: 'MyChatPage',
         component: MyChatPage
     },
     {
-        path:'/api/v1/notification',
+        path:'/notification',
         name: 'NotificationPage',
         component: NotificationPage
     },
+    {
+      path: '/chat',
+      component: MyChatPage,
+    }
+    
 ]
 
 const router = createRouter({

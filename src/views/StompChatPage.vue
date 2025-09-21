@@ -1,344 +1,219 @@
 <template>
-  <v-container>
-    <v-row justify="center">
-      <v-col cols="12" md="8">
-        <v-card>
-          <v-card-title class="text-center text-h5">채팅</v-card-title>
+  <div class="chat-room">
+    <!-- 메시지 -->
+    <div class="chat-box">
+      <div
+        v-for="(m, i) in messages"
+        :key="i"
+        class="msg"
+        :class="{ me: isMe(m), other: !isMe(m) }"
+      >
+        <!-- 상대 아바타(이니셜) -->
+        <div v-if="!isMe(m)" class="avatar">{{ initials(m.senderNickname) }}</div>
 
-          <v-card-text>
-            <div class="chat-box">
-              <div
-                v-for="(msg, index) in messages"
-                :key="index"
-                :class="['chat-message', msg.senderNickname===senderNickname ? 'sent' : 'received']"
-              >
-                <strong>{{ msg.senderNickname }}: </strong> {{ msg.message }}
-              </div>
-            </div>
+        <div class="msg-body">
+          <div v-if="!isMe(m)" class="name">{{ m.senderNickname }}</div>
+          <div class="bubble">{{ m.message }}</div>
+          <div class="time">{{ formatTime(m.createdAt) }}</div>
+        </div>
+      </div>
+    </div>
 
-            <!-- 입력 영역: + 메뉴 / 입력 / 전송 -->
-            <div class="input-row">
-              <!-- + 버튼 -->
-              <v-menu v-model="actionsMenu" :close-on-content-click="true">
-                <template #activator="{ props }">
-                  <v-btn v-bind="props" icon="mdi-plus" variant="text" class="mr-1" />
-                </template>
-
-                <v-list>
-                  <v-list-item @click="openCreateVote">
-                    <v-list-item-title>투표 만들기</v-list-item-title>
-                  </v-list-item>
-                  <v-list-item @click="openVoteList">
-                    <v-list-item-title>진행 중 투표</v-list-item-title>
-                  </v-list-item>
-                  <v-list-item disabled>
-                    <v-list-item-title>파일 첨부 (준비중)</v-list-item-title>
-                  </v-list-item>
-                </v-list>
-              </v-menu>
-
-              <v-text-field
-                v-model="newMessage"
-                label="메시지 입력"
-                @keyup.enter="sendMessage"
-                hide-details
-                class="flex-1"
-              />
-              <v-btn color="primary" @click="sendMessage">전송</v-btn>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- [D1] 투표 만들기 다이얼로그 -->
-    <v-dialog v-model="createVoteDialog" max-width="520">
-      <v-card>
-        <v-card-title>투표 만들기</v-card-title>
-        <v-card-text>
-          <v-text-field v-model="newVote.title" label="제목 (예: 운동 시간 정하기)" />
-          <v-textarea
-            v-model="newVote.optionsText"
-            label="옵션 (콤마 또는 줄바꿈으로 구분)"
-            hint="예) 오전 8시, 오후 2시, 저녁 7시"
-            persistent-hint
-            rows="3"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="createVoteDialog=false">취소</v-btn>
-          <v-btn color="primary" @click="createVote">생성</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- [D2] 투표 목록 다이얼로그 -->
-    <v-dialog v-model="voteListDialog" max-width="560">
-      <v-card>
-        <v-card-title>진행 중 투표</v-card-title>
-        <v-card-text>
-          <v-alert v-if="votes.length===0" type="info" variant="tonal">
-            진행 중인 투표가 없습니다.
-          </v-alert>
-
-          <v-list v-else>
-            <v-list-item
-              v-for="v in votes"
-              :key="v.voteId"
-              :title="v.title"
-              :subtitle="formatDate(v.createdAt)"
-            >
-              <template #append>
-                <v-btn size="small" class="mr-2" @click="openCastVote(v)">투표</v-btn>
-                <v-btn size="small" variant="tonal" @click="openResult(v)">결과 보기</v-btn>
-              </template>
-            </v-list-item>
-          </v-list>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="voteListDialog=false">닫기</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- [D3] 투표하기 다이얼로그 -->
-    <v-dialog v-model="castDialog" max-width="520">
-      <v-card>
-        <v-card-title>{{ activeVote?.title }}</v-card-title>
-        <v-card-text>
-          <v-radio-group v-model="selectedOption">
-            <v-radio
-              v-for="opt in parsedOptions(activeVote)"
-              :key="opt"
-              :label="opt"
-              :value="opt"
-            />
-          </v-radio-group>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="castDialog=false">취소</v-btn>
-          <v-btn color="primary" :disabled="!selectedOption" @click="castVote">투표하기</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- [D4] 결과 보기 다이얼로그 -->
-    <v-dialog v-model="resultDialog" max-width="520">
-      <v-card>
-        <v-card-title>{{ activeVote?.title }} - 결과</v-card-title>
-        <v-card-text>
-          <div v-if="Object.keys(voteResult).length===0">아직 결과가 없습니다.</div>
-          <div v-else class="space-y-2">
-            <div v-for="opt in parsedOptions(activeVote)" :key="opt" class="mb-2">
-              <div class="d-flex align-center justify-space-between mb-1">
-                <span>{{ opt }}</span>
-                <b>{{ voteResult[opt] || 0 }}</b>
-              </div>
-              <v-progress-linear
-                :model-value="percent(opt)"
-                height="10"
-                rounded
-              />
-            </div>
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="resultDialog=false">닫기</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </v-container>
+    <!-- 입력줄 -->
+    <div class="input-row">
+      <VotePanel :room-id="effectiveRoomId" />
+      <input
+        class="input flex1"
+        v-model="newMessage"
+        placeholder="메시지를 입력하세요"
+        @keyup.enter="sendMessage"
+      />
+      <button class="btn primary" @click="sendMessage">전송</button>
+    </div>
+  </div>
 </template>
 
 <script>
-import SockJS from 'sockjs-client';
-import Stomp from 'webstomp-client';
-import axios from 'axios';
+import SockJS from 'sockjs-client'
+import Stomp from 'webstomp-client'
+import axios from 'axios'
+import VotePanel from '@/components/VotePanel.vue'
 
-export default{
-    data(){
-        return {
-            messages: [],
-            newMessage: "",
-            stompClient: null,
-            token: "",
-            senderNickname: null,
-            roomId: null,
-            // + 메뉴/투표
-            actionsMenu: false,
-
-            createVoteDialog: false,
-            voteListDialog: false,
-            castDialog: false,
-            resultDialog: false,
-
-            newVote: { title: "", optionsText: "" },
-            votes: [],                 // [{voteId,title,options,createdAt}]
-            activeVote: null,          // 현재 선택된 투표
-            selectedOption: null,
-            voteResult: {},            // {옵션: 카운트}
-        }
-    },
-    async created(){
-        this.senderNickname = localStorage.getItem("nickname");
-        this.roomId = this.$route.params.roomId;
-        const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/history/${this.roomId}`);
-        this.messages = response.data.items;
-        this.connectWebsocket();
-    },
-     // 사용자가 현재 라우트에서 다른 라우트로 이동하려고 할때 호출되는 훅함수
-    beforeRouteLeave(to, from, next) {
-        this.disconnectWebSocket();
-        next();
-    },
-    // 화면을 완전히 꺼버렸을때
-    beforeUnmount() {
-        this.disconnectWebSocket();
-    },
-    methods: {
-        connectWebsocket(){
-            if(this.stompClient && this.stompClient.connected) return;
-            // sockjs는 websocket을 내장한 향상된 js 라이브러리. http엔드포인트 사용.
-            const sockJs = new SockJS(`${process.env.VUE_APP_API_BASE_URL}/ws/chat`)
-            this.stompClient = Stomp.over(sockJs);
-            this.token = localStorage.getItem("token");
-            this.stompClient.connect({
-                Authorization: `Bearer ${this.token}`
-
-            },
-                ()=>{
-                    console.log("✅ WebSocket 연결 성공");
-                    this.stompClient.subscribe(`/sub/chat/${this.roomId}`, (message) => {
-                        const parseMessage = JSON.parse(message.body)
-                        this.messages.push(parseMessage);
-                        this.scrollToBottom();
-                    },{Authorization: `Bearer ${this.token}`})
-                }
-            )
-        },
-        sendMessage(){
-            if(this.newMessage.trim() === "")return;
-            const message = {
-                senderNickname: this.senderNickname,
-                message: this.newMessage
-            }
-            this.stompClient.send(`/pub/chat/${this.roomId}`, JSON.stringify(message));
-            this.newMessage = ""
-        },
-        scrollToBottom(){
-            this.$nextTick(()=>{
-                const chatBox = this.$el.querySelector(".chat-box");
-                chatBox.scrollTop = chatBox.scrollHeight;
-            })
-        },
-        async disconnectWebSocket(){
-            await axios.post(`${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/${this.roomId}/read`);
-            if(this.stompClient && this.stompClient.connected){
-                this.stompClient.unsubscribe(`/sub/chat/${this.roomId}`);
-                this.stompClient.disconnect();
-            }
-        },
-        openCreateVote() {
-            this.actionsMenu = false
-            this.createVoteDialog = true
-            },
-        async createVote() {
-            const options = this.newVote.optionsText
-                .split(/[\n,]/)
-                .map(s => s.trim())
-                .filter(Boolean)
-
-            if (!this.newVote.title || options.length === 0) return
-
-            await axios.post(`${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/chatrooms/${this.roomId}`, {
-                title: this.newVote.title,
-                options
-            })
-
-            this.createVoteDialog = false
-            this.newVote = { title: "", optionsText: "" }
-            this.openVoteList()  // 방금 만든 거 보이게
-            },
-
-        async openVoteList() {
-            this.actionsMenu = false
-            // 투표 목록 조회
-            const { data } = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/chatrooms/${this.roomId}`)
-            this.votes = data.items[0];
-            this.voteListDialog = true
-            },
-
-        openCastVote(vote) {
-            this.activeVote = vote
-            this.selectedOption = null
-            this.castDialog = true
-            },
-        async castVote() {
-            await axios.post(`${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/${this.activeVote.voteId}/vote`, {
-                selectedOption: this.selectedOption
-            })
-            this.castDialog = false
-            // 투표 후 곧바로 결과 확인하도록
-            await this.openResult(this.activeVote)
-            },
-
-        async openResult(vote) {
-            this.activeVote = vote
-            const { data } = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/${vote.voteId}/results`)
-            this.voteResult = data.items[0]
-            this.resultDialog = true
-            },
-
-            parsedOptions(vote) {
-            if (!vote || !vote.options) return []
-            if (Array.isArray(vote.options)) {
-                return vote.options // 이미 배열이면 그대로 사용
-            }
-            try {
-                return JSON.parse(vote.options) // 문자열이면 파싱
-            } catch {
-                return []
-            }
-            },
-            percent(opt) {
-            const counts = Object.values(this.voteResult || {}).reduce((a, b) => a + b, 0)
-            if (counts === 0) return 0
-            return Math.round(((this.voteResult[opt] || 0) / counts) * 100)
-            },
-            formatDate(dt) {
-            // createdAt 직렬화가 문자열이면 그대로, epoch면 변환
-            try { return new Date(dt).toLocaleString() } catch { return dt }
+export default {
+  name: 'ChatRoom',
+  components: { VotePanel },
+  props: { roomId: { type: [String, Number], default: null } },
+  data() {
+    return {
+      messages: [],
+      newMessage: '',
+      stompClient: null,
+      subscription: null,
+      token: '',
+      senderNickname: null,
     }
-}
+  },
+  computed: {
+    // 드로어에서 props로 주거나, 라우팅으로 들어오는 경우 모두 지원
+    effectiveRoomId() {
+      return this.roomId || this.$route.params.roomId
+    },
+  },
+  async created() {
+    this.senderNickname = localStorage.getItem('nickname') || ''
+    const { data } = await axios.get(
+      `${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/history/${this.effectiveRoomId}`
+    )
+    this.messages = data.items || []
+    this.connectWebsocket()
+  },
+  beforeRouteLeave(to, from, next) {
+    this.cleanup().finally(() => next())
+  },
+  beforeUnmount() {
+    this.cleanup()
+  },
+  methods: {
+    isMe(m) {
+      return m.senderNickname === this.senderNickname
+    },
+    connectWebsocket() {
+      if (this.stompClient?.connected) return
+      const sockJs = new SockJS(`${process.env.VUE_APP_API_BASE_URL}/ws/chat`)
+      this.stompClient = Stomp.over(sockJs)
+      this.token = localStorage.getItem('token') || ''
+
+      this.stompClient.connect(
+        { Authorization: `Bearer ${this.token}` },
+        () => {
+          const topic = `/sub/chat/${this.effectiveRoomId}`
+          this.subscription = this.stompClient.subscribe(
+            topic,
+            (message) => {
+              let body
+              try {
+                body = JSON.parse(message.body)
+              } catch {
+                body = { senderNickname: '시스템', message: message.body }
+              }
+              this.messages.push(body)
+              this.$nextTick(() => {
+                const box = this.$el.querySelector('.chat-box')
+                if (box) box.scrollTop = box.scrollHeight
+              })
+            },
+            { Authorization: `Bearer ${this.token}` }
+          )
+        }
+      )
+    },
+    sendMessage() {
+      const text = this.newMessage.trim()
+      if (!text) return
+      const payload = { senderNickname: this.senderNickname, message: text }
+      this.stompClient?.send(
+        `/pub/chat/${this.effectiveRoomId}`,
+        JSON.stringify(payload)
+      )
+      this.newMessage = ''
+    },
+    async cleanup() {
+      try {
+        await axios.post(
+          `${process.env.VUE_APP_API_BASE_URL}/api/v1/chatrooms/${this.effectiveRoomId}/read`
+        )
+      } catch {alert('');}
+      try {
+        this.subscription?.unsubscribe()
+      } catch {alert('');}
+      try {
+        this.stompClient?.disconnect()
+      } catch {alert('');}
+    },
+    initials(name) {
+      return (name || '?').trim().charAt(0).toUpperCase();
+    },
+    formatTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      const h = d.getHours(), m = `${d.getMinutes()}`.padStart(2,'0');
+      const ampm = h >= 12 ? 'PM' : 'AM'; const hh = h % 12 || 12;
+      return `${ampm} ${hh}:${m}`;
+    },
+  },
 }
 </script>
-<style>
-.chat-box{
-    height: 300px;
-    overflow-y: auto;
-    border: 1px solid #ddd;
-    margin-bottom: 10px;
-}
-.chat-message{
-    margin-bottom:10px;
-}
-.sent{
-    text-align:right;
-}
-.received{
-    text-align:left;
-}
-.input-row {
-  display: flex;
-  align-items: center;
-  margin-top: 10px;
-}
-.input-row .flex-1 {
+
+<style scoped>
+.chat-room { display: flex; flex-direction: column; height: 100%; background: #fff; }
+
+/* 메시지 영역 */
+.chat-box {
   flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+.msg{
+  display:flex; gap:10px; align-items:flex-end; margin:14px 0;
+}
+.msg.other{ justify-content:flex-start; }
+.msg.me{ justify-content:flex-end; }
+
+/* 아바타(이니셜) */
+.avatar{
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:#f0f2f5; color:#555; font-weight:800; font-size:14px;
+  border:1px solid #e5e7eb;
 }
 
+/* 본문 스택 */
+.msg-body{ max-width:min(65%, 560px); display:flex; flex-direction:column; }
+.msg.me .msg-body{ align-items:flex-end; }
+
+/* 보낸이 이름/시간 */
+.name{ font-size:12px; color:#6b7280; margin:0 0 4px 4px; }
+.time{ font-size:11px; color:#9ca3af; margin-top:4px; }
+
+/* 말풍선 */
+.bubble{
+  position:relative;
+  padding:10px 14px; line-height:1.5; word-break:break-word;
+  border-radius:14px; box-shadow:0 1px 1.5px rgba(0,0,0,.06);
+}
+.msg.other .bubble{
+  background:#fff; border:1px solid #e5e7eb;
+}
+.msg.me .bubble{
+  background:#eef1f4; border:1px solid #e3e6ea;
+}
+
+/* 꼬리(Tail) */
+.msg.other .bubble::after{
+  content:''; position:absolute; left:-6px; bottom:0;
+  width:12px; height:12px; background:#fff;
+  border-left:1px solid #e5e7eb; border-bottom:1px solid #e5e7eb;
+  transform:rotate(45deg);
+}
+.msg.me .bubble::after{
+  content:''; position:absolute; right:-6px; bottom:0;
+  width:12px; height:12px; background:#eef1f4;
+  border-right:1px solid #e3e6ea; border-bottom:1px solid #e3e6ea;
+  transform:rotate(45deg);
+}
+
+/* 입력줄 */
+.input-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px; border-top: 1px solid #eee;
+}
+.input { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; }
+.input:focus { outline: none; border-color: #f59b44; box-shadow: 0 0 0 3px #f59b4444; }
+.flex1 { flex: 1; }
+
+/* 버튼 */
+.btn { border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 14px; font-weight: 700; cursor: pointer; }
+.btn.primary { border-color: transparent; background: linear-gradient(180deg,#ffb467,#f59b44); color: #fff; }
 </style>

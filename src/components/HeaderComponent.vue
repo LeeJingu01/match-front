@@ -1,95 +1,243 @@
 <!-- HeaderComponent.vue -->
 <template>
-  <v-app-bar app dark>
-    <v-container>
-      <v-row align="center">
-        <v-col class="d-flex justify-start">
-          <v-btn :to="{path:'/friend/list'}">친구목록</v-btn>
-          <v-btn :to="{path:'/chatrooms'}">채팅방목록</v-btn>
-        </v-col>
+  <header class="header">
+    <nav class="nav">
+      <!-- 왼쪽: 로고 -->
+      <div class="nav-left">
+        <router-link to="/" class="logo-link">
+          <img src="@/assets/logo.png" alt="메인 로고" class="logo" />
+        </router-link>
+      </div>
 
-        <v-col class="text-center">
-          <v-btn :to="{path: '/'}">매칭 서비스</v-btn>
-        </v-col>
+      <!-- 가운데: 탭 -->
+      <div class="nav-center">
+        <!-- Match 탭 -->
+        <div class="tab dropdown-parent">
+          <router-link to="/match" class="tab-link">Match</router-link>
+          <div class="dropdown">
+            <router-link to="/match/quick">빠른 매칭 신청</router-link>
+            <router-link to="/match/in-progress">매칭 중 조회</router-link>
+            <router-link to="/match/results">매칭 결과 조회</router-link>
+            <router-link to="/match/history">매칭 이력 조회</router-link>
+          </div>
+        </div>
 
-        <v-col class="d-flex justify-end">
-          <!-- ✅ 라우트로 이동 + 배지 -->
-          <v-btn v-if="isLogin" :to="{path:'/api/v1/notification'}" class="relative">
-            알림
-            <span v-if="badgeCount>0" class="badge">{{ badgeCount }}</span>
-          </v-btn>
+        <!-- Match List 탭 -->
+        <router-link to="/match-list" class="tab">Match List</router-link>
 
-          <v-btn v-if="isLogin" :to="{path:'/api/v1/chatrooms/list'}">MYCHATPAGE</v-btn>
-          <v-btn v-if="!isLogin" :to="{path:'/auth/signup'}">회원가입</v-btn>
-          <v-btn v-if="!isLogin" :to="{path:'/auth/login'}">로그인</v-btn>
-          <v-btn v-if="isLogin" @click="doLogout">로그아웃</v-btn>
-        </v-col>
-      </v-row>
-    </v-container>
-  </v-app-bar>
+        <!-- Community 탭 -->
+        <div class="tab dropdown-parent">
+          <router-link to="/community" class="tab-link">Community</router-link>
+          <div class="dropdown">
+            <router-link to="/community/board">게시판</router-link>
+            <router-link to="/community/friends">친구</router-link>
+          </div>
+        </div>
+      </div>
+
+      <!-- 오른쪽: 로그인 상태별 -->
+      <div class="nav-right">
+        <router-link v-if="isLogin" to="/notification" class="icon-btn" title="알림">
+          <i class="mdi mdi-bell-outline"></i>
+          <span v-if="badgeCount > 0" class="badge">{{ badgeCount }}</span>
+        </router-link>
+
+        <router-link v-if="isLogin" to="/chatrooms/list" class="icon-btn" title="MYCHATPAGE">
+          <i class="mdi mdi-send-outline"></i>
+        </router-link>
+
+        <router-link v-if="isLogin" to="/mypage" class="icon-btn" title="마이페이지">
+          <i class="mdi mdi-account-circle-outline"></i>
+        </router-link>
+
+        <button v-if="isLogin" class="text-btn logout" @click="doLogout">
+          로그아웃
+        </button>
+
+        <template v-else>
+          <router-link to="/Signup" class="text-btn">회원가입</router-link>
+          <router-link to="/Login" class="text-btn">로그인</router-link>
+        </template>
+      </div>
+    </nav>
+  </header>
 </template>
 
 <script>
-import axios from 'axios'
+import axios from "axios";
 
-const API = 'http://localhost:8080'
+const API = "http://localhost:8080";
 
 export default {
-  data(){
+  data() {
     return {
       isLogin: false,
       badgeCount: 0,
       es: null,
-    }
+    };
   },
-  created(){
+  created() {
     const token = localStorage.getItem("token");
     if (token) {
-      this.isLogin = true
-      this.bootstrapBadge()
-      this.connectSSE()
+      this.isLogin = true;
+      this.bootstrapBadge();
+      this.connectSSE();
     }
   },
-  methods:{
+  methods: {
     async bootstrapBadge() {
       try {
-        const { data } = await axios.get(`${API}/api/v1/notifications/unread-count`)
-        this.badgeCount = data?.count ?? 0
-      } catch (e) { /* noop */ }
+        const { data } = await axios.get(`${API}/api/v1/notifications/unread-count`);
+        this.badgeCount = data?.count ?? 0;
+      } catch { /* noop */ }
     },
     connectSSE() {
-      const token = localStorage.getItem('token')
-      this.es = new EventSource(`${API}/api/v1/sse/notifications?token=${encodeURIComponent(token||'')}`)
-      this.es.addEventListener('match-confirmed', (e) => {
-        this.badgeCount += 1       // 새 알림 → 배지 +1
-        window.dispatchEvent(new CustomEvent('notifications:new', { detail: JSON.parse(e.data) }))
-      })
-      this.es.addEventListener('match-cancelled', (e) => {
-      this.badgeCount += 1
-      // 알림 페이지가 열려있으면 목록도 즉시 갱신하고 싶다면 브로드캐스트
-      window.dispatchEvent(new CustomEvent('notifications:new', { detail: JSON.parse(e.data) }))
-      })
-      // 알림 페이지에서 전체 읽음이 일어나면 배지 0으로 만들라고 신호를 받을 수 있게 커스텀 이벤트 사용
-      window.addEventListener('notifications:reset-badge', this.resetBadge)
+      const token = localStorage.getItem("token");
+      this.es = new EventSource(`${API}/api/v1/sse/notifications?token=${encodeURIComponent(token || "")}`);
+      this.es.addEventListener("match-confirmed", (e) => {
+        this.badgeCount += 1;
+        window.dispatchEvent(new CustomEvent("notifications:new", { detail: JSON.parse(e.data) }));
+      });
+      this.es.addEventListener("match-cancelled", (e) => {
+        this.badgeCount += 1;
+        window.dispatchEvent(new CustomEvent("notifications:new", { detail: JSON.parse(e.data) }));
+      });
+      window.addEventListener("notifications:reset-badge", this.resetBadge);
     },
-    resetBadge() { this.badgeCount = 0 },
-    beforeUnmount(){ 
-      if (this.es) this.es.close()
-      window.removeEventListener('notifications:reset-badge', this.resetBadge)
+    resetBadge() { this.badgeCount = 0; },
+    beforeUnmount() {
+      if (this.es) this.es.close();
+      window.removeEventListener("notifications:reset-badge", this.resetBadge);
     },
-    doLogout(){
+    doLogout() {
       localStorage.clear();
       window.location.reload();
-    }
-  }
-}
+    },
+  },
+};
 </script>
 
 <style scoped>
-.relative{ position:relative; }
-.badge{
-  position:absolute; top:-6px; right:-6px;
-  min-width:18px; padding:2px 6px; border-radius:999px;
-  background:#ef4444; color:#fff; font-size:12px; line-height:1; text-align:center;
+/* 레이아웃 */
+.header {
+  background: #fff;
+  border-bottom: 1px solid #e9e9e9;
 }
+.nav {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  justify-content: space-between;
+}
+.nav-left, .nav-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.nav-center {
+  display: flex;
+  align-items: center;
+  gap: 50px;
+  position: relative;
+}
+
+/* 로고 */
+.logo-link {
+  display: inline-flex;
+  align-items: center;
+}
+.logo {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+}
+
+/* 탭 메뉴 */
+.tab-link, .tab {
+  font-weight: 700;
+  color: #111;
+  text-decoration: none;
+  padding: 8px 14px;
+  position: relative;
+}
+.tab-link:hover, .tab:hover { color: #000; }
+
+/* 드롭다운 */
+.dropdown-parent {
+  position: relative;
+}
+.dropdown {
+  display: none;
+  position: absolute;
+  top: 100%; /* 탭 바로 밑 */
+  left: 0;
+  background: #fff;
+  border: 1px solid #ddd;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  flex-direction: column;
+  min-width: 180px;
+  z-index: 1000;
+}
+.dropdown a {
+  padding: 10px 16px;
+  color: #111;
+  text-decoration: none;
+  font-weight: 500;
+  display: block;
+}
+.dropdown a:hover {
+  background: #f5f5f5;
+}
+.dropdown-parent:hover .dropdown {
+  display: flex;
+}
+
+/* 아이콘 버튼 */
+.icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #111;
+  text-decoration: none;
+}
+.icon-btn i {
+  font-size: 22px;
+  line-height: 1;
+}
+.icon-btn:hover { opacity: 0.8; }
+
+/* 알림 배지 */
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 텍스트 버튼 */
+.text-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 6px;
+  color: #111;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+.text-btn:hover { opacity: 0.8; }
+.logout { color: #d12; }
 </style>

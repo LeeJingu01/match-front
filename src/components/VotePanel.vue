@@ -1,181 +1,171 @@
 <template>
-  <v-card class="mt-4">
-    <v-card-title class="d-flex align-center justify-space-between">
-      투표
-      <v-btn color="primary" @click="showCreate = true">투표 만들기</v-btn>
-    </v-card-title>
+  <!-- [+] 메뉴 버튼 -->
+  <v-menu v-model="actionsMenu" :close-on-content-click="true">
+    <template #activator="{ props }">
+      <v-btn v-bind="props" icon="mdi-plus" variant="text" class="mr-1" />
+    </template>
 
-    <!-- 목록 -->
-    <v-card-text>
-      <v-alert v-if="!votes.length" type="info" variant="tonal">진행 중인 투표가 없습니다.</v-alert>
+    <v-list>
+      <v-list-item @click="openCreateVote">
+        <v-list-item-title>투표 만들기</v-list-item-title>
+      </v-list-item>
+      <v-list-item @click="openVoteList">
+        <v-list-item-title>진행 중 투표</v-list-item-title>
+      </v-list-item>
+      <v-list-item disabled>
+        <v-list-item-title>파일 첨부 (준비중)</v-list-item-title>
+      </v-list-item>
+    </v-list>
+  </v-menu>
 
-      <v-list v-else lines="two" density="comfortable">
-        <v-list-item
-          v-for="v in votes"
-          :key="v.voteId"
-          class="mb-4"
-        >
-          <template #title>{{ v.title }}</template>
-          <template #subtitle>생성: {{ formatDt(v.createdAt) }}</template>
+  <!-- [D1] 투표 만들기 -->
+  <v-dialog v-model="createVoteDialog" max-width="520">
+    <v-card>
+      <v-card-title>투표 만들기</v-card-title>
+      <v-card-text>
+        <v-text-field v-model="newVote.title" label="제목" />
+        <v-textarea
+          v-model="newVote.optionsText"
+          label="옵션 (콤마/줄바꿈 구분)"
+          rows="3"
+          hint="예) 오전 8시, 오후 2시, 저녁 7시"
+          persistent-hint
+        />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="createVoteDialog=false">취소</v-btn>
+        <v-btn color="primary" @click="createVote">생성</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 
-          <div class="mt-2">
-            <!-- 아직 투표 전 -->
-            <div v-if="!v.voted">
-              <v-radio-group v-model="v.selected">
-                <v-radio
-                  v-for="opt in v.options"
-                  :key="opt"
-                  :label="opt"
-                  :value="opt"
-                />
-              </v-radio-group>
-              <v-btn :disabled="!v.selected" color="primary" @click="doVote(v)">투표</v-btn>
-              <v-btn variant="tonal" class="ml-2" @click="loadResults(v)">결과 보기</v-btn>
+  <!-- [D2] 투표 목록 -->
+  <v-dialog v-model="voteListDialog" max-width="560">
+    <v-card>
+      <v-card-title>진행 중 투표</v-card-title>
+      <v-card-text>
+        <v-alert v-if="votes.length===0" type="info" variant="tonal">진행 중인 투표가 없습니다.</v-alert>
+        <v-list v-else>
+          <v-list-item
+            v-for="v in votes"
+            :key="v.voteId"
+            :title="v.title"
+            :subtitle="formatDate(v.createdAt)"
+          >
+            <template #append>
+              <v-btn size="small" class="mr-2" @click="openCastVote(v)">투표</v-btn>
+              <v-btn size="small" variant="tonal" @click="openResult(v)">결과 보기</v-btn>
+            </template>
+          </v-list-item>
+        </v-list>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn @click="voteListDialog=false">닫기</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- [D3] 투표하기 -->
+  <v-dialog v-model="castDialog" max-width="520">
+    <v-card>
+      <v-card-title>{{ activeVote?.title }}</v-card-title>
+      <v-card-text>
+        <v-radio-group v-model="selectedOption">
+          <v-radio v-for="opt in parsedOptions(activeVote)" :key="opt" :label="opt" :value="opt" />
+        </v-radio-group>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="castDialog=false">취소</v-btn>
+        <v-btn color="primary" :disabled="!selectedOption" @click="castVote">투표하기</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- [D4] 결과 보기 -->
+  <v-dialog v-model="resultDialog" max-width="520">
+    <v-card>
+      <v-card-title>{{ activeVote?.title }} - 결과</v-card-title>
+      <v-card-text>
+        <div v-if="Object.keys(voteResult).length===0">아직 결과가 없습니다.</div>
+        <div v-else>
+          <div v-for="opt in parsedOptions(activeVote)" :key="opt" class="mb-3">
+            <div class="d-flex align-center justify-space-between mb-1">
+              <span>{{ opt }}</span><b>{{ voteResult[opt] || 0 }}</b>
             </div>
-
-            <!-- 결과 -->
-            <div v-else>
-              <div v-for="row in v.resultRows" :key="row.opt" class="mb-3">
-                <div class="d-flex justify-space-between mb-1">
-                  <span>{{ row.opt }}</span>
-                  <span>{{ row.count }} ({{ row.pct }}%)</span>
-                </div>
-                <v-progress-linear :model-value="row.pct" height="10" />
-              </div>
-              <v-btn variant="tonal" @click="loadResults(v)">새로고침</v-btn>
-            </div>
+            <v-progress-linear :model-value="percent(opt)" height="10" rounded />
           </div>
-        </v-list-item>
-      </v-list>
-    </v-card-text>
-
-    <!-- 생성 다이얼로그 -->
-    <v-dialog v-model="showCreate" width="560">
-      <v-card>
-        <v-card-title>새 투표 만들기</v-card-title>
-        <v-card-text>
-          <v-text-field v-model="form.title" label="제목" />
-          <div class="d-flex">
-            <v-text-field
-              v-model="newOpt"
-              label="옵션 추가"
-              @keyup.enter="addOption"
-              class="mr-2"
-            />
-            <v-btn class="mt-2" @click="addOption">추가</v-btn>
-          </div>
-          <div>
-            <v-chip
-              v-for="(o,i) in form.options"
-              :key="i"
-              class="mr-2 mb-2"
-              closable
-              @click:close="removeOption(i)"
-            >
-              {{ o }}
-            </v-chip>
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showCreate = false">취소</v-btn>
-          <v-btn color="primary" :disabled="!canCreate" @click="createVote">생성</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </v-card>
+        </div>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn @click="resultDialog=false">닫기</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script>
-import axios from "axios";
+import axios from 'axios'
 
 export default {
-  name: "VotePanel",
-  props: {
-    roomId: { type: Number, required: true },
-  },
+  name: 'VotePanel',
+  props: { roomId: { type: [String, Number], required: true } },
   data() {
     return {
-      showCreate: false,
+      actionsMenu: false,
+      createVoteDialog: false,
+      voteListDialog: false,
+      castDialog: false,
+      resultDialog: false,
+
+      newVote: { title: '', optionsText: '' },
       votes: [],
-      form: { title: "", options: [] },
-      newOpt: "",
-    };
+      activeVote: null,
+      selectedOption: null,
+      voteResult: {},
+    }
   },
-  async created() {
-    
-    await this.fetchVotes();
-  },
-  computed: {
-    canCreate() {
-      return this.form.title.trim() && this.form.options.length >= 2;
-    },
-  },
+  computed: { apiBase() { return process.env.VUE_APP_API_BASE_URL } },
   methods: {
-    formatDt(dt) {
-      return new Date(dt).toLocaleString();
-    },
-    addOption() {
-      const s = (this.newOpt || "").trim();
-      if (!s) return;
-      this.form.options.push(s);
-      this.newOpt = "";
-    },
-    removeOption(i) {
-      this.form.options.splice(i, 1);
-    },
-    async fetchVotes() {
-      const { data } = await axios.get(
-        `${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/chatrooms/${this.roomId}`
-      );
-      // 서버: Vote.options = JSON 문자열
-      this.votes = data.map((v) => ({
-        ...v,
-        options: JSON.parse(v.options || "[]"),
-        selected: "",
-        voted: false,
-        resultRows: [],
-      }));
-    },
+    openCreateVote() { this.actionsMenu=false; this.createVoteDialog=true },
     async createVote() {
-      const { data } = await axios.post(
-        `${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/chatrooms/${this.roomId}`,
-        {
-          title: this.form.title,
-          options: this.form.options,
-        }
-      );
-      const v = {
-        ...data,
-        options: JSON.parse(data.options || "[]"),
-        selected: "",
-        voted: false,
-        resultRows: [],
-      };
-      this.votes.unshift(v);
-      this.showCreate = false;
-      this.form = { title: "", options: [] };
+      const options = this.newVote.optionsText.split(/[\n,]/).map(s=>s.trim()).filter(Boolean)
+      if (!this.newVote.title || options.length===0) return
+      await axios.post(`${this.apiBase}/api/v1/vote/chatrooms/${this.roomId}`, { title: this.newVote.title, options })
+      this.createVoteDialog=false; this.newVote={ title:'', optionsText:'' }
+      this.openVoteList()
     },
-    async doVote(v) {
-      await axios.post(
-        `${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/${v.voteId}/vote`,
-        { selectedOption: v.selected }
-      );
-      v.voted = true;
-      await this.loadResults(v);
+    async openVoteList() {
+      this.actionsMenu=false
+      const { data } = await axios.get(`${this.apiBase}/api/v1/vote/chatrooms/${this.roomId}`)
+      this.votes = data.items?.[0] || []
+      this.voteListDialog=true
     },
-    async loadResults(v) {
-      const { data } = await axios.get(
-        `${process.env.VUE_APP_API_BASE_URL}/api/v1/vote/${v.voteId}/results`
-      );
-      const total = Object.values(data).reduce((a, b) => a + b, 0) || 0;
-      v.resultRows = v.options.map((opt) => {
-        const count = Number(data[opt] || 0);
-        const pct = total ? Math.round((count * 100) / total) : 0;
-        return { opt, count, pct };
-      });
-      v.voted = true; // 결과가 보이면 voted 상태로 취급
+    openCastVote(v) { this.activeVote=v; this.selectedOption=null; this.castDialog=true },
+    async castVote() {
+      await axios.post(`${this.apiBase}/api/v1/vote/${this.activeVote.voteId}/vote`, { selectedOption: this.selectedOption })
+      this.castDialog=false
+      await this.openResult(this.activeVote)
     },
-  },
-};
+    async openResult(v) {
+      this.activeVote=v
+      const { data } = await axios.get(`${this.apiBase}/api/v1/vote/${v.voteId}/results`)
+      this.voteResult = data.items?.[0] || {}
+      this.resultDialog=true
+    },
+    parsedOptions(vote) {
+      if (!vote || !vote.options) return []
+      if (Array.isArray(vote.options)) return vote.options
+      try { return JSON.parse(vote.options) } catch { return [] }
+    },
+    percent(opt) {
+      const total = Object.values(this.voteResult||{}).reduce((a,b)=>a+b,0)
+      return total ? Math.round(((this.voteResult[opt]||0)/total)*100) : 0
+    },
+    formatDate(dt) { try { return new Date(dt).toLocaleString() } catch { return dt } },
+  }
+}
 </script>
